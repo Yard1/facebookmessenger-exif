@@ -8,16 +8,21 @@ import sys
 EXIFTOOL_PATH = "Image-ExifTool-12.14/exiftool"
 FOLDER_PATH = "messages"
 FILES_WITH_ERRORS = []
+FILES_NOT_FOUND = []
 
 EXIFTOOL_PATH = Path(EXIFTOOL_PATH)
 
 def main():
     read_json_files(FOLDER_PATH)
+    if FILES_NOT_FOUND:
+        print("The following files were not found:")
+        print("\n".join(FILES_NOT_FOUND))
     if FILES_WITH_ERRORS:
         print(
             "The following files had errors and didn't have exif data appened to them:"
         )
         print("\n".join(FILES_WITH_ERRORS))
+    if FILES_NOT_FOUND or FILES_WITH_ERRORS:
         print("Exiting.")
         sys.exit(1)
     else:
@@ -28,25 +33,29 @@ def main():
 def run_exiftool(exiftool_path, obj, is_video=False):
     arguments = []
     path = obj["uri"]
-    if is_video:
-        arguments.append("-api")
-        arguments.append("quicktime")
+    if not path.exists():
+        print(f"file \"{str(path)}\" does not exist!")
+        FILES_NOT_FOUND.append(str(path))
+    else:
+        if is_video:
+            arguments.append("-api")
+            arguments.append("quicktime")
+            arguments.append(f"-CreationDate=\"{obj['creation_timestamp']}\"")
+            arguments.append(f"-dateTimeOriginal=\"{obj['creation_timestamp']}\"")
+            arguments.append(f"-CreateDate=\"{obj['creation_timestamp']}\"")
+            arguments.append(f"-ModifyDate=\"{obj['creation_timestamp']}\"")
+            arguments.append(f"-TrackCreateDate=\"{obj['creation_timestamp']}\"")
         arguments.append(f"-CreationDate=\"{obj['creation_timestamp']}\"")
         arguments.append(f"-dateTimeOriginal=\"{obj['creation_timestamp']}\"")
-        arguments.append(f"-CreateDate=\"{obj['creation_timestamp']}\"")
-        arguments.append(f"-ModifyDate=\"{obj['creation_timestamp']}\"")
-        arguments.append(f"-TrackCreateDate=\"{obj['creation_timestamp']}\"")
-    arguments.append(f"-CreationDate=\"{obj['creation_timestamp']}\"")
-    arguments.append(f"-dateTimeOriginal=\"{obj['creation_timestamp']}\"")
-    arguments.append("-overwrite_original")
-    print(f"Running {' '.join([str(exiftool_path)]+arguments+[str(path)])}")
-    try:
-        subprocess.run([exiftool_path] + arguments + [path], check=True)
-        print(f"Appended exif data succesfully!")
-    except Exception as e:
-        print(f"exiftool error!")
-        FILES_WITH_ERRORS.append(str(path))
-        print(e)
+        arguments.append("-overwrite_original")
+        print(f"Running {' '.join([str(exiftool_path)]+arguments+[str(path)])}")
+        try:
+            subprocess.run([exiftool_path] + arguments + [path], check=True)
+            print(f"Appended exif data succesfully!")
+        except Exception as e:
+            print(f"exiftool error!")
+            FILES_WITH_ERRORS.append(str(path))
+            print(e)
     print()
 
 
