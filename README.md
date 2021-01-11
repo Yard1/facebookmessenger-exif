@@ -20,14 +20,14 @@ Please note that the only kind of metadata provided by Facebook Messenger is the
 2. If you don't have Python 3 installed already, install it: https://www.python.org/downloads/
 3. Download `messengerexif.py` from this repo
 4. Download ExifTool: https://exiftool.org/
-5. Run `python messengerexif.py` `[path_to_messages]` `[path_to_exiftool_executable]`
+5. Run `python messengerexif.py [path_to_messages] [path_to_exiftool_executable]`
 
 Assuming everything has gone well, you should see text appearing showing Facebook Messenger Exif going from media file to media file adding dates. It should only take a few moments per file.
 
 If you have an especially large archive you can speed up the process by first going through your Facebook archive and deleting the media you don't want, and then running the tool. It will skip all missing media files and thereby speed up the process.
 
 Documentation is provided when running with `--help` argument:
-`python messengerexif.py -h`
+`python messengerexif.py --help`
 
 ## Contributing
 
