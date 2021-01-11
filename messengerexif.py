@@ -64,10 +64,11 @@ PARSER.add_argument(
     help="Stop execution whenever an error is raised, instead of continuing (Default: False)",
 )
 
+
 def main():
     print("Starting messengerexif...")
     args = PARSER.parse_args()
-    folder_path = Path(args.messages)
+    folder_path = Path(args.messages).absolute()
     if not folder_path.exists():
         print(f'Path "{str(folder_path)}" does not exist!')
         print("Exiting.")
@@ -76,7 +77,7 @@ def main():
         print(f'Path "{str(folder_path)}" is not a directory!')
         print("Exiting.")
         sys.exit(1)
-    exiftool_path = Path(args.exiftool)
+    exiftool_path = Path(args.exiftool).absolute()
     if not exiftool_path.exists():
         print(f'Path "{str(folder_path)}" does not exist!')
         print("Exiting.")
@@ -100,9 +101,11 @@ def main():
     print("Exiting.")
 
 
-def run_exiftool(exiftool_path, obj, is_video=False, backup=False, fail_fast=False):
+def run_exiftool(
+    exiftool_path, folder_path, obj, is_video=False, backup=False, fail_fast=False
+):
     arguments = []
-    path = obj["uri"]
+    path = folder_path.joinpath(*obj["uri"].parts[1:])
     if not path.exists():
         print(f'file "{str(path)}" does not exist!')
         FILES_NOT_FOUND.append(str(path))
@@ -132,15 +135,24 @@ def run_exiftool(exiftool_path, obj, is_video=False, backup=False, fail_fast=Fal
     print()
 
 
-def read_json_files(path, exiftool_path, backup=False, fail_fast=False):
-    path = Path(path).joinpath("**").joinpath("*.json")
-    print(f"Reading json files in {str(path)}...")
+def read_json_files(folder_path, exiftool_path, backup=False, fail_fast=False):
+    path = Path(folder_path).joinpath("**").joinpath("*.json")
+    print(f"Reading json files in {str(folder_path)}...")
     for file in glob.iglob(str(path), recursive=True):
         photos, videos, gifs = read_json(file)
         for photo in photos + gifs:
-            run_exiftool(exiftool_path, photo, backup=backup, fail_fast=fail_fast)
+            run_exiftool(
+                exiftool_path, folder_path, photo, backup=backup, fail_fast=fail_fast
+            )
         for video in videos:
-            run_exiftool(exiftool_path, video, is_video=True, backup=backup, fail_fast=fail_fast)
+            run_exiftool(
+                exiftool_path,
+                folder_path,
+                video,
+                is_video=True,
+                backup=backup,
+                fail_fast=fail_fast,
+            )
 
 
 def normalize_json(meta, timestamp=None):
