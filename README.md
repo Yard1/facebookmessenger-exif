@@ -41,6 +41,6 @@ Readme and testing by Zankoas
 
 Inspired by addshore's [facebook-data-image-exif](https://github.com/addshore/facebook-data-image-exif)
 
-## Licence
+## License
 
 MIT
