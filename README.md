@@ -16,9 +16,9 @@ Note that this tool will be writing directly to the media, overwriting any exist
 
 1. Request and download a copy of your Facebook data. It must be in JSON format. 'High' media quality is strongly recommended
 2. Install Python 3.7 or newer: https://www.python.org/downloads/
-4. Download `messengerexif.py` from this repo
-5. Download ExifTool: https://exiftool.org/
-6. Run `python messengerexif.py [path_to_messages] [path_to_exiftool_executable]`
+3. Download `messengerexif.py` from this repo
+4. Download ExifTool: https://exiftool.org/
+5. Run `python messengerexif.py [path_to_messages] [path_to_exiftool_executable]`
 
 Assuming everything has gone well you should see text appearing showing Facebook Messenger Exif going from media file to media file adding dates. It should only take a few moments per file.
 
