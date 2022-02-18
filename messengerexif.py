@@ -174,6 +174,8 @@ def read_json(path):
     print(f"Reading file {path}...")
     with open(path, "r") as f:
         json_file = json.load(f)
+    if "messages" not in json_file:
+        return [], [], []
     messages = json_file["messages"]
     photos = []
     videos = []
