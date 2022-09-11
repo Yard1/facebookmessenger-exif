@@ -184,7 +184,7 @@ def normalize_json(obj, timestamp=None):
     obj["uri"] = Path(obj["uri"])
     return obj
 
-def read_json(path, photo_ext=(".jpg", ".png", ".gif"), video_ext=(".mp4", ".m4a")):
+def read_json(path, photo_ext=(".jpg", ".png", ".gif"), video_ext=(".mp4",)):
     print(f"Reading file {path}...")
     with open(path, "r") as f:
         json_file = json.load(f)
