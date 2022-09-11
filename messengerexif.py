@@ -106,6 +106,8 @@ def run_exiftool(
 ):
     arguments = []
     path = folder_path.joinpath(*obj["uri"].parts[1:])
+    if not path.exists() and path.with_suffix('.png').exists():
+        path = path.with_suffix('.png')
     if not path.exists():
         print(f'file "{str(path)}" does not exist!')
         FILES_NOT_FOUND.append(str(path))
@@ -124,9 +126,16 @@ def run_exiftool(
             arguments.append("-overwrite_original")
         print(f"Running {' '.join([str(exiftool_path)]+arguments+[str(path)])}")
         try:
-            subprocess.run([exiftool_path] + arguments + [path], check=True)
+            subprocess.run([exiftool_path] + arguments + [path], check=True, capture_output=True)
             print(f"Appended exif data succesfully!")
-        except Exception as e:
+        except subprocess.CalledProcessError as e:
+            if "Not a valid JPG (looks more like a PNG)" in str(e.stderr):
+                print(f"Updating to PNG {str(path)}")
+                path.rename(path.with_suffix('.png'))
+                obj["uri"] = obj["uri"].with_suffix('.png')
+                return run_exiftool(
+                    exiftool_path, folder_path, obj, is_video=is_video, backup=backup, fail_fast=fail_fast
+                )
             print(f"exiftool error!")
             if fail_fast:
                 sys.exit(1)
@@ -174,28 +183,32 @@ def read_json(path):
     print(f"Reading file {path}...")
     with open(path, "r") as f:
         json_file = json.load(f)
-    if "messages" not in json_file:
-        return [], [], []
-    messages = json_file["messages"]
     photos = []
     videos = []
     gifs = []
-    for x in [
-        normalize_json(x["photos"], x["timestamp_ms"])
-        for x in messages
-        if "photos" in x
-    ]:
-        photos.extend(x)
-    for x in [
-        normalize_json(x["videos"], x["timestamp_ms"])
-        for x in messages
-        if "videos" in x
-    ]:
-        videos.extend(x)
-    for x in [
-        normalize_json(x["gifs"], x["timestamp_ms"]) for x in messages if "gifs" in x
-    ]:
-        gifs.extend(x)
+    if "messages" in json_file:
+        messages = json_file["messages"]
+        for x in [
+            normalize_json(x["photos"], x["timestamp_ms"])
+            for x in messages
+            if "photos" in x
+        ]:
+            photos.extend(x)
+        for x in [
+            normalize_json(x["videos"], x["timestamp_ms"])
+            for x in messages
+            if "videos" in x
+        ]:
+            videos.extend(x)
+        for x in [
+            normalize_json(x["gifs"], x["timestamp_ms"]) for x in messages if "gifs" in x
+        ]:
+            gifs.extend(x)
+            
+    if "image" in json_file:
+        print("FOUND IMAGE: ", json_file["image"])
+        photos.extend(normalize_json([json_file["image"]]))
+        
     print(f"Found {len(photos)} photos, {len(videos)} videos and {len(gifs)} gifs.\n")
     return photos, videos, gifs
 
