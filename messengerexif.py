@@ -173,6 +173,7 @@ def read_json_files(folder_path, exiftool_path, backup=False, fail_fast=False):
 def normalize_json(obj, timestamp=None):
     if "creation_timestamp" not in obj:
         if timestamp:
+            print("WARNING: Using message timestamp for obj:", obj)
             obj["creation_timestamp"] = timestamp
         else:
             raise ValueError(f"{obj} is lacking creation_timestamp!")
@@ -183,7 +184,7 @@ def normalize_json(obj, timestamp=None):
     obj["uri"] = Path(obj["uri"])
     return obj
 
-def read_json(path, photo_ext=(".jpg", ".png", ".gif"), video_ext=(".mp4",)):
+def read_json(path, photo_ext=(".jpg", ".png", ".gif"), video_ext=(".mp4", ".m4a")):
     print(f"Reading file {path}...")
     with open(path, "r") as f:
         json_file = json.load(f)
