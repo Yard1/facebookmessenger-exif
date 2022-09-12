@@ -37,6 +37,8 @@ import argparse
 
 FILES_WITH_ERRORS = []
 FILES_NOT_FOUND = []
+ALL_EXT = set()
+TOTAL_FIXED = 0
 
 PARSER = argparse.ArgumentParser(
     description="Given a messages folder downloaded from Facebook, append creation date EXIF metadata to images, videos and gifs present. EXIF data is obtained from JSON files present in the folder. Uses Exiftool - https://exiftool.org/"
@@ -85,6 +87,8 @@ def main():
     backup = args.backup
     fail_fast = args.fail_fast
     read_json_files(folder_path, exiftool_path, backup=backup, fail_fast=fail_fast)
+    print("Found these extensions:", ALL_EXT)
+    print(f"Successfully added exif to {TOTAL_FIXED} file(s).")
     if FILES_NOT_FOUND:
         print("The following files were not found:")
         print("\n".join(FILES_NOT_FOUND))
@@ -104,8 +108,11 @@ def main():
 def run_exiftool(
     exiftool_path, folder_path, obj, is_video=False, backup=False, fail_fast=False
 ):
+    global TOTAL_FIXED
     arguments = []
     path = folder_path.joinpath(*obj["uri"].parts[1:])
+    if not path.exists() and path.with_suffix('.png').exists():
+        path = path.with_suffix('.png')
     if not path.exists():
         print(f'file "{str(path)}" does not exist!')
         FILES_NOT_FOUND.append(str(path))
@@ -124,9 +131,17 @@ def run_exiftool(
             arguments.append("-overwrite_original")
         print(f"Running {' '.join([str(exiftool_path)]+arguments+[str(path)])}")
         try:
-            subprocess.run([exiftool_path] + arguments + [path], check=True)
-            print(f"Appended exif data succesfully!")
-        except Exception as e:
+            subprocess.run([exiftool_path] + arguments + [path], check=True, capture_output=True)
+            print(f"[{TOTAL_FIXED}] Appended exif data succesfully!")
+            TOTAL_FIXED += 1
+        except subprocess.CalledProcessError as e:
+            if "Not a valid JPG (looks more like a PNG)" in str(e.stderr):
+                print(f"Updating to PNG {str(path)}")
+                path.rename(path.with_suffix('.png'))
+                obj["uri"] = obj["uri"].with_suffix('.png')
+                return run_exiftool(
+                    exiftool_path, folder_path, obj, is_video=is_video, backup=backup, fail_fast=fail_fast
+                )
             print(f"exiftool error!")
             if fail_fast:
                 sys.exit(1)
@@ -139,8 +154,8 @@ def read_json_files(folder_path, exiftool_path, backup=False, fail_fast=False):
     path = Path(folder_path).joinpath("**").joinpath("*.json")
     print(f"Reading json files in {str(folder_path)}...")
     for file in glob.iglob(str(path), recursive=True):
-        photos, videos, gifs = read_json(file)
-        for photo in photos + gifs:
+        photos, videos = read_json(file)
+        for photo in photos:
             run_exiftool(
                 exiftool_path, folder_path, photo, backup=backup, fail_fast=fail_fast
             )
@@ -155,49 +170,45 @@ def read_json_files(folder_path, exiftool_path, backup=False, fail_fast=False):
             )
 
 
-def normalize_json(meta, timestamp=None):
-    for obj in meta:
-        if "creation_timestamp" not in obj:
-            if timestamp:
-                obj["creation_timestamp"] = timestamp
-            else:
-                raise ValueError(f"{obj} is lacking creation_timestamp!")
-        obj["creation_timestamp"] = int(str(obj["creation_timestamp"])[0:10])
-        obj["creation_timestamp"] = datetime.fromtimestamp(
-            obj["creation_timestamp"]
-        ).strftime("%Y:%m:%d %H:%M:%S")
-        obj["uri"] = Path(obj["uri"])
-    return meta
+def normalize_json(obj, timestamp=None):
+    if "creation_timestamp" not in obj:
+        if timestamp:
+            print("WARNING: Using message timestamp for obj:", obj)
+            obj["creation_timestamp"] = timestamp
+        else:
+            raise ValueError(f"{obj} is lacking creation_timestamp!")
+    obj["creation_timestamp"] = int(str(obj["creation_timestamp"])[0:10])
+    obj["creation_timestamp"] = datetime.fromtimestamp(
+        obj["creation_timestamp"]
+    ).strftime("%Y:%m:%d %H:%M:%S")
+    obj["uri"] = Path(obj["uri"])
+    return obj
 
-
-def read_json(path):
+def read_json(path, photo_ext=(".jpg", ".png", ".gif"), video_ext=(".mp4",)):
     print(f"Reading file {path}...")
     with open(path, "r") as f:
         json_file = json.load(f)
-    if "messages" not in json_file:
-        return [], [], []
-    messages = json_file["messages"]
-    photos = []
-    videos = []
-    gifs = []
-    for x in [
-        normalize_json(x["photos"], x["timestamp_ms"])
-        for x in messages
-        if "photos" in x
-    ]:
-        photos.extend(x)
-    for x in [
-        normalize_json(x["videos"], x["timestamp_ms"])
-        for x in messages
-        if "videos" in x
-    ]:
-        videos.extend(x)
-    for x in [
-        normalize_json(x["gifs"], x["timestamp_ms"]) for x in messages if "gifs" in x
-    ]:
-        gifs.extend(x)
-    print(f"Found {len(photos)} photos, {len(videos)} videos and {len(gifs)} gifs.\n")
-    return photos, videos, gifs
+        
+    all_objs = []
+    if "messages" in json_file:
+        messages = json_file["messages"]
+        for message in messages:
+            objs = [obj for _, val in message.items() if isinstance(val, list) for obj in val if isinstance(obj, dict)]
+            all_objs.extend([(o, message["timestamp_ms"]) for o in objs])
+
+    if "image" in json_file and isinstance(json_file["image"], dict):
+        all_objs.append((json_file["image"], None))
+    
+    all_objs = [o for o in all_objs if "uri" in o[0] and not o[0]["uri"].startswith("https://")]
+    photo_objs = [o for o in all_objs if any(o[0]["uri"].endswith(e) for e in photo_ext)]
+    video_objs = [o for o in all_objs if any(o[0]["uri"].endswith(e) for e in video_ext)]
+    ALL_EXT.update(o[0]["uri"].rsplit(".", 1)[-1] for o in all_objs if "." in o[0]["uri"])
+
+    photos = [normalize_json(*o) for o in photo_objs]
+    videos = [normalize_json(*o) for o in video_objs]
+
+    print(f"Found {len(photos)} photos and {len(videos)} videos.\n")
+    return photos, videos
 
 
 if __name__ == "__main__":
