@@ -169,18 +169,33 @@ def read_json_files(folder_path, exiftool_path, backup=False, fail_fast=False):
                 fail_fast=fail_fast,
             )
 
+def normalize_timestamp(timestamp):
+    return int(str(timestamp)[0:10])
+
+def format_timestamp(timestamp):
+    return datetime.fromtimestamp(timestamp).strftime("%Y:%m:%d %H:%M:%S")
 
 def normalize_json(obj, timestamp=None):
-    if "creation_timestamp" not in obj:
-        if timestamp:
-            print("WARNING: Using message timestamp for obj:", obj)
+    if "creation_timestamp" in obj:
+        if timestamp is None:
+                timestamp = obj["creation_timestamp"]
+        timestamp = normalize_timestamp(timestamp)
+        obj["creation_timestamp"] = normalize_timestamp(obj["creation_timestamp"])
+        if  obj["creation_timestamp"] == 0:
+            print(f"WARNING: `creation_timestamp` is zero, using message `timestamp` instead: {obj}")
             obj["creation_timestamp"] = timestamp
-        else:
-            raise ValueError(f"{obj} is lacking creation_timestamp!")
-    obj["creation_timestamp"] = int(str(obj["creation_timestamp"])[0:10])
-    obj["creation_timestamp"] = datetime.fromtimestamp(
-        obj["creation_timestamp"]
-    ).strftime("%Y:%m:%d %H:%M:%S")
+        if timestamp < obj["creation_timestamp"]:
+            print(
+                f"WARNING: Message `timestamp` ({format_timestamp(timestamp)}) is smaller "
+                f"than `creation_timestamp` ({format_timestamp(obj['creation_timestamp'])}): {obj}"
+            )
+            obj["creation_timestamp"] = timestamp
+    elif timestamp:
+        print("WARNING: No `creation_timestamp` using message `timestamp` instead:", obj)
+        obj["creation_timestamp"] = normalize_timestamp(timestamp)
+    else:
+        raise ValueError(f"{obj} is lacking creation_timestamp!")
+    obj["creation_timestamp"] = format_timestamp(obj["creation_timestamp"])
     obj["uri"] = Path(obj["uri"])
     return obj
 
