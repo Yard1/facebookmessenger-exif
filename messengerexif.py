@@ -177,9 +177,7 @@ def format_timestamp(timestamp):
 
 def normalize_json(obj, timestamp=None):
     if "creation_timestamp" in obj:
-        if timestamp is None:
-                timestamp = obj["creation_timestamp"]
-        timestamp = normalize_timestamp(timestamp)
+        timestamp = normalize_timestamp(obj["creation_timestamp"] if timestamp is None else timestamp)
         obj["creation_timestamp"] = normalize_timestamp(obj["creation_timestamp"])
         if  obj["creation_timestamp"] == 0:
             print(f"WARNING: `creation_timestamp` is zero, using message `timestamp` instead: {obj}")
