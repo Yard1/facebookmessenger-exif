@@ -81,7 +81,7 @@ def main():
         sys.exit(1)
     exiftool_path = Path(args.exiftool).absolute()
     if not exiftool_path.exists():
-        print(f'Path "{str(folder_path)}" does not exist!')
+        print(f'Path "{str(exiftool_path)}" does not exist!')
         print("Exiting.")
         sys.exit(1)
     backup = args.backup
